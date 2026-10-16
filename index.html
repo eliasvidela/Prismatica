@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Experiencia web inmersiva de capacitación">
+    <title>Experiencias Inmersivas</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- GSAP -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+</head>
+
+<body>
+
+    <div id="app">
+
+        <!-- =========================
+             INTRO
+        ========================== -->
+        <section id="intro" class="screen active">
+            <div class="intro-content">
+                <div class="eyebrow">EXPERIENCIAS DE APRENDIZAJE</div>
+
+                <h1>
+                   <br> Capacitación</br>
+                    <span>que se vive.</span>
+                </h1>
+
+                <p>
+                    Diseñamos experiencias digitales, interactivas, inmersivas e inolvidables,
+                    para transformar la manera en que las personas aprenden.
+                </p>
+
+                <button id="startExperience" class="primary-button">
+                    <span>Comenzar experiencia</span>
+                    <span class="arrow">→</span>
+                </button>
+            </div>
+
+            <div class="intro-footer">
+                <span>360°</span>
+                <span>REALIDAD VIRTUAL</span>
+                <span>INMERSION</span>
+                <span>GAMIFICACIÓN</span>
+                <span>TEAM BUILDING</span>
+            </div>
+        </section>
+
+
+        <!-- =========================
+             EXPERIENCIA
+        ========================== -->
+        <main id="experience" class="screen">
+
+            <!-- Entorno Three.js -->
+            <div id="canvas-container"></div>
+
+            <!-- Overlay -->
+            <div class="vignette"></div>
+
+            <!-- =========================
+                 HEADER
+            ========================== -->
+            <header class="topbar">
+
+                <button class="logo" id="homeButton" aria-label="Volver al inicio">
+                    <span class="logo-mark"></span>
+                    <span class="logo-text">
+                        HOME<span>.</span>
+                    </span>
+                </button>
+
+                <nav class="main-nav">
+                    <button id="mapButton"></button>
+                    <button id="chaptersButton"></button>
+                </nav>
+
+                <button id="menuButton" class="menu-button" aria-label="Abrir menú">
+                    <span></span>
+                    <span></span>
+                </button>
+            </header>
+
+
+            <!-- =========================
+                 HUD
+            ========================== -->
+            <div class="hud">
+
+                <div class="hud-title">
+                    <span class="hud-dot"></span>
+                    <span>EXPLORA LOS PUNTOS INTERACTIVOS</span>
+                </div>
+
+                <div class="hud-progress">
+                    <span>01</span>
+                    <div class="progress-line">
+                        <div id="progressBar"></div>
+                    </div>
+                    <span>05</span>
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 INSTRUCCIONES
+            ========================== -->
+            <div id="instructions" class="instructions">
+                <div class="mouse-icon">
+                    <span></span>
+                </div>
+                <div>
+                    <strong>Descubre</strong>
+                    <small>Mueve el mouse para observar el entorno</small>
+                </div>
+            </div>
+
+
+            <!-- =========================
+                 HOTSPOT INFO
+            ========================== -->
+            <aside id="infoPanel" class="info-panel">
+
+                <button id="closeInfo" class="close-button">×</button>
+
+                <div class="info-content">
+                    <div class="info-number" id="infoNumber">01</div>
+
+                    <div class="info-category" id="infoCategory">
+                        EXPERIENCIA
+                    </div>
+
+                    <h2 id="infoTitle">Video 360°</h2>
+
+                    <p id="infoDescription">
+                        Explora situaciones reales desde cualquier ángulo.
+                    </p>
+
+                    <button class="secondary-button" id="infoAction">
+                        Galería
+                        <span>→</span>
+                    </button>
+                </div>
+
+            </aside>
+
+            <!-- =========================
+                 GALERÍA DEL HOTSPOT
+            ========================== -->
+            <section id="galleryPanel" class="gallery-panel" aria-hidden="true">
+                <button id="closeGallery" class="gallery-close" aria-label="Cerrar galería">×</button>
+
+                <div class="gallery-header">
+                    <span class="gallery-eyebrow">GALERÍA</span>
+                    <span id="galleryCounter">01 / 03</span>
+                </div>
+
+                <div class="gallery-layout">
+                    <div class="gallery-main-wrap">
+                        <button id="galleryPrev" class="gallery-arrow gallery-prev" aria-label="Imagen anterior">‹</button>
+                        <div class="gallery-main">
+                            <img id="galleryMainImage" src="" alt="" />
+                            <div class="gallery-scanline"></div>
+                            <div class="gallery-main-caption">
+                                <span id="galleryMainTitle">IMAGEN 01</span>
+                                <span>GALERÍA</span>
+                            </div>
+                        </div>
+                        <button id="galleryNext" class="gallery-arrow gallery-next" aria-label="Siguiente imagen">›</button>
+                    </div>
+
+                    <div class="gallery-thumbs" id="galleryThumbs"></div>
+                </div>
+            </section>
+
+
+            <!-- =========================
+                 BOTTOM INFO
+            ========================== >
+            <div class="bottom-info">
+                <div>
+                    <span class="label">ENTORNO</span>
+                    <strong>01 / CAMPUS INMERSIVO</strong>
+                </div>
+
+                <div class="drag-hint">
+                    <span>DRAG</span>
+                    <span class="drag-line"></span>
+                </div>
+            </div-->
+
+
+            <!-- =========================
+                 MAP OVERLAY
+            ========================== -->
+            <section id="mapOverlay" class="overlay-panel">
+
+                <button class="overlay-close" data-close-overlay>×</button>
+
+                <div class="overlay-inner">
+
+                    <div class="eyebrow">NAVEGACIÓN</div>
+
+                    <h2>Mapa de<br><span>experiencias.</span></h2>
+
+                    <p>
+                        Explora los distintos espacios y descubre cómo
+                        transformamos contenidos en experiencias de aprendizaje.
+                    </p>
+
+                    <div class="map-grid">
+
+                        <button class="map-card" data-hotspot="0">
+                            <span>01</span>
+                            <strong>Video 360°</strong>
+                            <small>Inmersión audiovisual</small>
+                        </button>
+
+                        <button class="map-card" data-hotspot="1">
+                            <span>02</span>
+                            <strong>Realidad Virtual</strong>
+                            <small>Simulación y práctica</small>
+                        </button>
+
+                        <button class="map-card" data-hotspot="2">
+                            <span>03</span>
+                            <strong>Interactividad</strong>
+                            <small>Exploración digital</small>
+                        </button>
+
+                        <button class="map-card" data-hotspot="3">
+                            <span>04</span>
+                            <strong>Gamificación</strong>
+                            <small>Aprender haciendo</small>
+                        </button>
+
+                        <button class="map-card" data-hotspot="4">
+                            <span>05</span>
+                            <strong>Diseño instruccional</strong>
+                            <small>La experiencia comienza aquí</small>
+                        </button>
+
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- =========================
+                 CHAPTERS OVERLAY
+            ========================== -->
+            <section id="chaptersOverlay" class="overlay-panel">
+
+                <button class="overlay-close" data-close-overlay>×</button>
+
+                <div class="overlay-inner chapters-inner">
+
+                    <div class="eyebrow">CAPÍTULOS</div>
+
+                    <h2>Del contenido<br><span>a la experiencia.</span></h2>
+
+                    <div class="chapter-list">
+
+                        <button class="chapter" data-hotspot="0">
+                            <span class="chapter-number">01</span>
+                            <span class="chapter-name">INMERSIÓN</span>
+                            <span class="chapter-desc">Video 360°</span>
+                            <span class="chapter-arrow">→</span>
+                        </button>
+
+                        <button class="chapter" data-hotspot="1">
+                            <span class="chapter-number">02</span>
+                            <span class="chapter-name">SIMULACIÓN</span>
+                            <span class="chapter-desc">Realidad virtual</span>
+                            <span class="chapter-arrow">→</span>
+                        </button>
+
+                        <button class="chapter" data-hotspot="2">
+                            <span class="chapter-number">03</span>
+                            <span class="chapter-name">INTERACCIÓN</span>
+                            <span class="chapter-desc">Entornos digitales</span>
+                            <span class="chapter-arrow">→</span>
+                        </button>
+
+                        <button class="chapter" data-hotspot="3">
+                            <span class="chapter-number">04</span>
+                            <span class="chapter-name">MOTIVACIÓN</span>
+                            <span class="chapter-desc">Gamificación</span>
+                            <span class="chapter-arrow">→</span>
+                        </button>
+
+                        <button class="chapter" data-hotspot="4">
+                            <span class="chapter-number">05</span>
+                            <span class="chapter-name">DISEÑO</span>
+                            <span class="chapter-desc">Diseño instruccional</span>
+                            <span class="chapter-arrow">→</span>
+                        </button>
+
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- =========================
+                 MENU OVERLAY
+            ========================== -->
+            <section id="menuOverlay" class="menu-overlay">
+
+                <button class="overlay-close" data-close-overlay>×</button>
+
+                <div class="menu-inner">
+
+                    <div class="eyebrow">INFORMACION</div>
+
+                    <nav class="big-menu">
+                        <!--button data-menu-target="mapOverlay">Mapa</button>
+                        <button data-menu-target="chaptersOverlay">Capítulos</button-->
+                        <button id="menuContact">Contacto</button>
+                    </nav>
+
+                    <div class="menu-footer">
+                        <span>360°</span>
+                        <span>REALIDAD VIRTUAL</span>
+                        <span>INMERSION</span>
+                        <span>GAMIFICACIÓN</span>
+                        <span>TEAM BUILDING</span>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+
+    </div>
+
+    <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+</script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
