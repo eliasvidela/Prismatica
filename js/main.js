@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
 // ============================================================
 // CARGADOR DE MODELOS 3D
@@ -15,6 +16,17 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 // modifica las rutas dentro de hotspotData.
 // ============================================================
 const controllerLoader = new GLTFLoader();
+const islaLoader = new GLTFLoader();
+let islaModel = null;
+
+// Interacción de rotación de modelos 3D
+const modelRaycaster = new THREE.Raycaster();
+const modelPointer = new THREE.Vector2();
+let rotatingModel = null;
+let rotatingModelStartX = 0;
+let rotatingModelStartY = 0;
+let rotatingModelBaseY = 0;
+
 
 /* ============================================================
    EXPERIENCIA INMERSIVA — BASE V1
@@ -32,9 +44,9 @@ const hotspotData = [
         id: 0,
         number: "01",
         category: "INMERSIÓN",
-        title: "Video 360°",
-        description: "Explora situaciones reales desde cualquier ángulo y transporta al participante directamente al lugar donde ocurre el aprendizaje.",
-        label: "VIDEO 360°",
+        title: "Entornos 360°",
+        description: "Explora situaciones reales desde cualquier ángulo y transporta al participante directamente al lugar donde ocurre el aprendizaje, creando una experiencia cercana, visual y envolvente.",
+        label: "ENTORNOS 360°",
 
         model: "./assets/models/insta.glb",
         
@@ -62,7 +74,7 @@ const hotspotData = [
         number: "02",
         category: "SIMULACIÓN",
         title: "Realidad Virtual",
-        description: "Creamos experiencias para dispositivos como Meta Quest que permiten practicar situaciones complejas dentro de un entorno seguro y controlado.",
+        description: "Practica situaciones complejas en entornos seguros y controlados mediante experiencias inmersivas para dispositivos como Meta Quest, sin las consecuencias de una situación real.",
         label: "REALIDAD VIRTUAL",
 
         model: "./assets/models/meta.glb",
@@ -90,7 +102,7 @@ const hotspotData = [
         number: "03",
         category: "INTERACCIÓN",
         title: "Entornos interactivos",
-        description: "Transformamos contenidos estáticos en espacios digitales donde el participante puede explorar, descubrir información y tomar decisiones.",
+        description: "Transformamos contenidos estáticos en espacios digitales donde cada participante puede explorar, descubrir información y tomar decisiones a través de una experiencia activa y dinámica.",
         label: "INTERACTIVIDAD",
 
         model: "./assets/models/note.glb",
@@ -118,7 +130,7 @@ const hotspotData = [
         number: "04",
         category: "MOTIVACIÓN",
         title: "Gamificación",
-        description: "Incorporamos desafíos, progresión, recompensas y decisiones para convertir el aprendizaje en una experiencia activa.",
+        description: "Incorporamos desafíos, progresión, recompensas y decisiones para convertir el aprendizaje en una experiencia activa, participativa y orientada a la acción.",
         label: "GAMIFICACIÓN",
 
         model: "./assets/models/controller.glb",
@@ -144,9 +156,9 @@ const hotspotData = [
     {
         id: 4,
         number: "05",
-        category: "EQUIPO",
+        category: "DESARROLLO ORGANIZACIONAL",
         title: "Team Building",
-        description: "Fortalecemos tu equipo de trabajo con experiencias inolvidables. Diseñamos la interacción y la tecnología alrededor de ese propósito.",
+        description: "Diseñamos experiencias para fortalecer equipos, mejorar su funcionamiento y alcanzar objetivos concretos. Cada experiencia comienza con un propósito de aprendizaje y se construye a su alrededor.",
         label: "TEAM BUILDING",
 
         model: "./assets/models/zen.glb",
@@ -194,6 +206,8 @@ const infoDescription = document.getElementById("infoDescription");
 const mapOverlay = document.getElementById("mapOverlay");
 const chaptersOverlay = document.getElementById("chaptersOverlay");
 const menuOverlay = document.getElementById("menuOverlay");
+const contactOverlay = document.getElementById("contactOverlay");
+const closeContact = document.getElementById("closeContact");
 
 const instructions = document.getElementById("instructions");
 const progressBar = document.getElementById("progressBar");
@@ -217,6 +231,7 @@ let renderer;
 let composer;
 let bloomPass;
 let clock;
+let dustParticles;
 
 const mixers = [];
 
@@ -233,6 +248,7 @@ let hotspotsFading = false;
 let hotspotsVisible = true;
 let isCameraFocused = false;
 let savedCameraState = null;
+let floatingBackgroundObjects = [];
 
 // ============================================================
 // MODELOS 3D INTERACTIVOS TEMPORALES
@@ -261,9 +277,11 @@ function initThree() {
 
     scene = new THREE.Scene();
 
-    scene.background = new THREE.Color(0xf3b8ab);
-   
-    scene.fog = new THREE.FogExp2(0xe7aaa0, 0.010);
+    // Fondo degradado global: reemplaza la antigua esfera de fondo.
+    scene.background = createGradientBackground();
+    //scene.fog = null;
+
+    scene.fog = new THREE.Fog( 0xea9999, 0, 100 );
 
     camera = new THREE.PerspectiveCamera(
         55,
@@ -287,8 +305,15 @@ function initThree() {
         alpha: false
     });
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // ============================================================
+    // CALIDAD DE RENDER
+    // Antialias nativo + mayor resolución interna.
+    // ============================================================
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
+
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -297,7 +322,7 @@ function initThree() {
     document.getElementById("canvas-container").appendChild(renderer.domElement);
 
     composer = new EffectComposer(renderer);
-    composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    composer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
 
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
@@ -317,9 +342,19 @@ const ssaoPass = new SSAOPass(scene, camera, width, height);
 
 // Ajustes recomendados para calibrar la intensidad del SSAO
 ssaoPass.kernelRadius = .2;       // Radio del efecto (sombras más amplias o cerradas)
-ssaoPass.minDistance = 0.005;    // Distancia mínima para que actúe
+ssaoPass.minDistance = 0.05;    // Distancia mínima para que actúe
 ssaoPass.maxDistance = 0.5;      // Distancia máxima de alcance
 composer.addPass(ssaoPass);
+
+// ============================================================
+// SMAA — ANTIALIASING ADICIONAL
+// Suaviza bordes finos de cubos y modelos GLB.
+// ============================================================
+const smaaPass = new SMAAPass(
+    window.innerWidth * renderer.getPixelRatio(),
+    window.innerHeight * renderer.getPixelRatio()
+);
+composer.addPass(smaaPass);
 
 // 4. Asegura la salida de color correcta en pantalla (Gamma/Linear)
 const outputPass = new OutputPass();
@@ -327,9 +362,11 @@ composer.addPass(outputPass);
 
     clock = new THREE.Clock();
 
-    createLights();
+createLights();
 createWorld();
+createIsla();
 createHotspots();
+createDustParticles();
 
 // ============================================================
 // CARGAR MODELOS 3D DE LOS HOTSPOTS
@@ -346,6 +383,244 @@ window.addEventListener("resize", onResize);
     renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
 
     animate();
+}
+
+/* ============================================================
+   FONDO DEGRADADO
+   ============================================================ */
+
+function createGradientBackground() {
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 1024;
+
+    const ctx = canvas.getContext("2d");
+
+    // Degradado vertical coral -> crema -> coral oscuro.
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "#722625");
+    gradient.addColorStop(0.42, "#fc8261");
+    gradient.addColorStop(0.72, "#eb5945");
+    gradient.addColorStop(1, "#722625");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Mancha suave central para dar profundidad sin una esfera.
+    const glow = ctx.createRadialGradient(
+        canvas.width * 0.5,
+        canvas.height * 0.43,
+        20,
+        canvas.width * 0.5,
+        canvas.height * 0.43,
+        canvas.width * 0.52
+    );
+
+    glow.addColorStop(0, "rgba(255, 235, 225, 0.30)");
+    glow.addColorStop(0.55, "rgba(255, 205, 190, 0.10)");
+    glow.addColorStop(1, "rgba(120, 45, 45, 0)");
+
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    return texture;
+}
+
+function createFloatingBackgroundObjects() {
+    const group = new THREE.Group();
+    group.name = "floatingBackgroundObjects";
+
+    const materials = [
+        new THREE.MeshStandardMaterial({
+            color: 0xffc945,
+            roughness: 0.55,
+            metalness: 0.15,
+            transparent: true,
+            opacity: 0.65
+        }),
+        new THREE.MeshStandardMaterial({
+            color: 0x6fa8dc,
+            roughness: 0.6,
+            metalness: 0.1,
+            transparent: true,
+            opacity: .5,
+        }),
+        new THREE.MeshStandardMaterial({
+            color: 0xe06666,
+            roughness: 0.45,
+            metalness: 0.2,
+            transparent: true,
+            opacity: 0.58
+        })
+    ];
+
+    // Distribución alrededor de toda la escena.
+    // Los objetos están bastante más lejos del área jugable.
+    const objects = [
+        // ─────────────── NORTE ───────────────
+        { type: "sphere", pos: [0, 10, -22], scale: 1.5 },
+        { type: "torus",  pos: [-11, 8, -24], scale: 1.8, rot: [1.2, 0.3, 0.5] },
+        { type: "cube",   pos: [14, 12, -26], scale: 1.7, rot: [0.4, 0.8, 0.2] },
+
+        // ─────────────── SUR ───────────────
+        { type: "sphere", pos: [-15, 6, 18], scale: 1.1 },
+        { type: "torus",  pos: [12, 9, 22], scale: 1.5, rot: [0.4, 1.2, 0.7] },
+        { type: "cube",   pos: [0, 13, 25], scale: 2.0, rot: [0.8, 0.2, 0.5] },
+
+        // ─────────────── ESTE ───────────────
+        { type: "sphere", pos: [24, 6, -8], scale: 1.4 },
+        { type: "torus",  pos: [27, 11, 8], scale: 1.8, rot: [0.6, 0.8, 0.2] },
+        { type: "cube",   pos: [22, 14, -20], scale: 1.3, rot: [0.2, 0.5, 0.9] },
+
+        // ─────────────── OESTE ───────────────
+        { type: "sphere", pos: [-25, 9, 5], scale: 1.7 },
+        { type: "torus",  pos: [-28, 13, -12], scale: 1.3, rot: [1.0, 0.4, 0.8] },
+        { type: "cube",   pos: [-23, 15, 18], scale: 1.8, rot: [0.5, 1.0, 0.3] },
+
+        // ─────────────── ALTOS ───────────────
+        { type: "sphere", pos: [8, 18, -10], scale: 1.2 },
+        { type: "torus",  pos: [-10, 20, 4], scale: 1.6, rot: [0.8, 0.2, 1.1] },
+        { type: "cube",   pos: [18, 19, 12], scale: 1.5, rot: [0.3, 0.7, 0.6] },
+
+        // ─────────────── MUY LEJANOS ───────────────
+        { type: "sphere", pos: [-32, 17, -25], scale: 1.8 },
+        { type: "torus",  pos: [32, 8, -28], scale: 2.0, rot: [1.1, 0.5, 0.3] },
+        { type: "cube",   pos: [-30, 21, 28], scale: 1.6, rot: [0.7, 0.4, 1.0] },
+        { type: "sphere", pos: [30, 22, 25], scale: 1.4 }
+    ];
+
+    objects.forEach((data, index) => {
+
+        let geometry;
+
+        if (data.type === "sphere") {
+            geometry = new THREE.SphereGeometry(1, 32, 32);
+        }
+
+        else if (data.type === "torus") {
+            geometry = new THREE.TorusGeometry(
+                1.2,
+                0.28,
+                24,
+                64
+            );
+        }
+
+        else if (data.type === "cube") {
+            geometry = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+        }
+
+        const material = materials[index % materials.length].clone();
+
+        const mesh = new THREE.Mesh(
+            geometry,
+            material
+        );
+
+        mesh.position.set(
+            data.pos[0],
+            data.pos[1],
+            data.pos[2]
+        );
+
+        mesh.scale.setScalar(data.scale);
+
+        if (data.rot) {
+            mesh.rotation.set(
+                data.rot[0],
+                data.rot[1],
+                data.rot[2]
+            );
+        }
+
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        // Animación individual
+        mesh.userData.baseX = data.pos[0];
+        mesh.userData.baseY = data.pos[1];
+        mesh.userData.baseZ = data.pos[2];
+
+mesh.userData.floatSpeed =
+    0.03 + Math.random() * 0.04;
+
+        mesh.userData.floatOffset =
+            Math.random() * Math.PI * 2;
+
+        mesh.userData.rotationX =
+            (Math.random() - 0.5) * 0.004;
+
+        mesh.userData.rotationY =
+            (Math.random() - 0.5) * 0.006;
+
+        mesh.userData.rotationZ =
+            (Math.random() - 0.5) * 0.003;
+
+        group.add(mesh);
+        floatingBackgroundObjects.push(mesh);
+    });
+
+    scene.add(group);
+}
+
+/* ============================================================
+   PARTICULAS DE POLVO
+   ============================================================ */
+
+function createDustParticles() {
+
+    const count = 850;
+    const positions = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+
+    for (let i = 0; i < count; i++) {
+
+        positions[i * 3] =
+            (Math.random() - 0.5) * 22;
+
+        positions[i * 3 + 1] =
+            0.4 + Math.random() * 9;
+
+        positions[i * 3 + 2] =
+            (Math.random() - 0.5) * 18;
+
+        sizes[i] =
+            0.018 + Math.random() * 0.035;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+
+    geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(positions, 3)
+    );
+
+    geometry.setAttribute(
+        "size",
+        new THREE.BufferAttribute(sizes, 1)
+    );
+
+    const material = new THREE.PointsMaterial({
+        color: 0xffeee5,
+        size: 0.045,
+        transparent: true,
+        opacity: 0.24,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+
+    dustParticles = new THREE.Points(
+        geometry,
+        material
+    );
+
+    dustParticles.name = "floatingDust";
+
+    scene.add(dustParticles);
 }
 
 /* ============================================================
@@ -368,6 +643,18 @@ function createLights() {
     );
 
     mainLight.position.set(-6, 16, 9);
+    mainLight.castShadow = true;
+
+    mainLight.shadow.mapSize.set(2048, 2048);
+    mainLight.shadow.camera.near = 0.5;
+    mainLight.shadow.camera.far = 45;
+    mainLight.shadow.camera.left = -18;
+    mainLight.shadow.camera.right = 18;
+    mainLight.shadow.camera.top = 18;
+    mainLight.shadow.camera.bottom = -18;
+
+    mainLight.shadow.bias = -0.0002;
+
     scene.add(mainLight);
 
     // Iluminación amplia y difusa para una estética high-key / liminal.
@@ -389,304 +676,63 @@ function createLights() {
 function createWorld() {
 
     // ============================================================
-    // SALA LIMINAL — PALETA CÁLIDA / ROJO CORAL / CREMA
-    // Inspirada en el lenguaje visual de Superliminal:
-    // espacios limpios, cálidos, surrealistas y muy legibles.
+    // ESCENARIO LIMPIO
+    //
+    // Se eliminaron:
+    // - Las cuatro paredes
+    // - Techo
+    // - Molduras / zócalos
+    // - Paneles decorativos
+    // - Lámpara superior
+    // - Cualquier malla utilizada para simular la luz del techo
+    //
+    // El fondo ahora es el degradado global de la escena.
     // ============================================================
 
     world = new THREE.Group();
     scene.add(world);
 
-    const ROOM_W = 0;
-    const ROOM_D = 0;
-    const ROOM_H = 0;
-    const WALL = 0;
-
-    const wallMaterial = new THREE.MeshStandardMaterial({
-        color: 0xd98778,
-        roughness: 0.78,
-        metalness: 0.0,
-        side: THREE.DoubleSide
-    });
-
-    const ceilingMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf3d4c9,
-        roughness: 0.82,
-        side: THREE.DoubleSide
-    });
-
-    const floorMaterial = new THREE.MeshStandardMaterial({
-        color: 0x8f3d3a,
-        roughness: 0.95,
-        side: THREE.DoubleSide
-    });
-
-    // ------------------------------------------------------------
+    // ============================================================
     // PISO
-    // ------------------------------------------------------------
-    const floor = new THREE.Mesh(
-        new THREE.BoxGeometry(ROOM_W, 0.35, ROOM_D),
-        floorMaterial
-    );
-    floor.position.set(0, -0.25, 0);
-    floor.rotation.set(4.7,0,0)
-    floor.receiveShadow = true;
-    world.add(floor);
-
-    // Alfombra central: mantiene la lectura de "sala de exhibición".
-    const carpet = new THREE.Mesh(
-        new THREE.SphereGeometry(50, 5,5),
-        new THREE.MeshStandardMaterial({
-            color: 0xcf3131,
-            side: THREE.DoubleSide,
-            roughness: 1.0,
-            metalness: 0
-        })
-    );
-    carpet.position.set(0, -0.045, 0.4);
-    carpet.receiveShadow = true;
-    world.add(carpet);
-
-
-    // Alfombra central: mantiene la lectura de "sala de exhibición".
-    const piso = new THREE.Mesh(
-        new THREE.CircleGeometry( 10, 32 ),
-        new THREE.MeshStandardMaterial({
-            color: 0x9d242c,
-            roughness: 1.0,
-            metalness: 0
-        })
-    );
-  
-    piso.rotation.set(4.71239,0,0);
-    piso.receiveShadow = true;
-    world.add(piso);
-
-    // ------------------------------------------------------------
-    // CUATRO PAREDES + TECHO
-    // ------------------------------------------------------------
-    const wallDefs = [
-        [0, ROOM_H / 2, -ROOM_D / 2, ROOM_W, ROOM_H, WALL], // fondo
-        [0, ROOM_H / 2,  ROOM_D / 2, ROOM_W, ROOM_H, WALL], // frente
-        [-ROOM_W / 2, ROOM_H / 2, 0, WALL, ROOM_H, ROOM_D], // izquierda
-        [ ROOM_W / 2, ROOM_H / 2, 0, WALL, ROOM_H, ROOM_D]  // derecha
-    ];
-
-    wallDefs.forEach(([x, y, z, w, h, d]) => {
-        const wall = new THREE.Mesh(
-            new THREE.BoxGeometry(w, h, d),
-            wallMaterial
-        );
-        wall.position.set(x, y, z);
-        wall.receiveShadow = true;
-        world.add(wall);
-    });
-
-    const ceiling = new THREE.Mesh(
-        new THREE.BoxGeometry(ROOM_W, 0.35, ROOM_D),
-        ceilingMaterial
-    );
-    ceiling.position.y = ROOM_H;
-    ceiling.receiveShadow = true;
-    world.add(ceiling);
-
-    // ------------------------------------------------------------
-    // MOLDURAS / ZÓCALOS
-    // ------------------------------------------------------------
-    const trimMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf1d8cf,
-        roughness: 0.65,
-        metalness: 0.0
-    });
-
-    const addTrim = (x, y, z, w, h, d) => {
-        const trim = new THREE.Mesh(
-            new THREE.BoxGeometry(w, h, d),
-            trimMaterial
-        );
-        trim.position.set(x, y, z);
-        world.add(trim);
-    };
-    // Zócalos
-    addTrim(0, 0.18, -ROOM_D / 2 + 0.18, ROOM_W, 0.36, 0.12);
-    addTrim(0, 0.18,  ROOM_D / 2 - 0.18, ROOM_W, 0.36, 0.12);
-    addTrim(-ROOM_W / 2 + 0.18, 0.18, 0, 0.12, 0.36, ROOM_D);
-    addTrim( ROOM_W / 2 - 0.18, 0.18, 0, 0.12, 0.36, ROOM_D);
-
-    // Moldura superior
-    addTrim(0, ROOM_H - 0.30, -ROOM_D / 2 + 0.18, ROOM_W, 0.28, 0.18);
-    addTrim(0, ROOM_H - 0.30,  ROOM_D / 2 - 0.18, ROOM_W, 0.28, 0.18);
-    addTrim(-ROOM_W / 2 + 0.18, ROOM_H - 0.30, 0, 0.18, 0.28, ROOM_D);
-    addTrim( ROOM_W / 2 - 0.18, ROOM_H - 0.30, 0, 0.18, 0.28, ROOM_D);
-
-    // Paneles bajos muy sutiles para dar profundidad a las paredes.
-    const lowerPanelMaterial = new THREE.MeshStandardMaterial({
-        color: 0xc96f64,
-        roughness: 0.82,
-        metalness: 0
-    });
-
-    const addPanelBand = (x, y, z, w, h, d) => {
-        const panel = new THREE.Mesh(
-            new THREE.BoxGeometry(w, h, d),
-            lowerPanelMaterial
-        );
-        panel.position.set(x, y, z);
-        panel.receiveShadow = true;
-        world.add(panel);
-    };
-
-    addPanelBand(0, 1.65, -ROOM_D / 2 + 0.17, ROOM_W - 0.8, 0.035, 0.035);
-    addPanelBand(0, 1.65,  ROOM_D / 2 - 0.17, ROOM_W - 0.8, 0.035, 0.035);
-    addPanelBand(-ROOM_W / 2 + 0.17, 1.65, 0, 0.035, 0.035, ROOM_D - 0.8);
-    addPanelBand( ROOM_W / 2 - 0.17, 1.65, 0, 0.035, 0.035, ROOM_D - 0.8);
-
-    // ------------------------------------------------------------
-    // LÁMPARA CENTRAL
-    // ------------------------------------------------------------
-    const pendant = new THREE.Group();
-    pendant.name = "pendantLight";
-    pendant.position.set(0, ROOM_H - 0.15, -0.5);
-    world.add(pendant);
-
-    const cable = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.025, 0.025, 1.25, 12),
-        new THREE.MeshStandardMaterial({ color: 0x9a4c43, roughness: 0.7 })
-    );
-    cable.position.y = -0.62;
-    pendant.add(cable);
-
-    const lampShade = new THREE.Mesh(
-        new THREE.SphereGeometry(0.82, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.58),
-        new THREE.MeshStandardMaterial({
-            color: 0xfff3e9,
-            emissive: 0xffd7c5,
-            emissiveIntensity: 1.6,
-            roughness: 0.25
-        })
-    );
-    lampShade.rotation.x = Math.PI;
-    lampShade.position.y = -1.22;
-    pendant.add(lampShade);
-
-    const lampLight = new THREE.PointLight(0xffd0be, 18, 20, 2);
-    lampLight.position.y = -1.35;
-    pendant.add(lampLight);
-
-    // ------------------------------------------------------------
-    // NÚCLEO CENTRAL ELIMINADO
-    // La sala queda despejada para priorizar la lectura de los
-    // cinco pedestales y sus modelos 3D.
-    // ------------------------------------------------------------
-
-    // ------------------------------------------------------------
-    // CINCO PEDESTALES — AHORA SON CUBOS
-    // El hotspot y el modelo 3D se anclan directamente a cada cubo.
     // ============================================================
-    // PARA CAMBIAR EL DISEÑO DE LOS PEDESTALES:
-    // modifica solo width / height / depth aquí.
+
+   const floorGeometry = new THREE.CircleGeometry(0, 128);
+//const floorGeometry = new THREE.CircleGeometry(10, 128);
+
+const floorMaterial = new THREE.MeshStandardMaterial({
+    color: 0xcf3131,
+    roughness: 0.9,
+    metalness: 0.0,
+});
+
+const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+
+floor.rotation.x = -Math.PI / 2;
+floor.position.y=-.1;
+floor.receiveShadow = true;
+
+world.add(floor);
+createFloatingBackgroundObjects();
+
     // ============================================================
+    // CINCO PEDESTALES — CUBOS
+    // ============================================================
+
     const cubeDefinitions = [
-        [-6.0, 1.45, -2.9, 2.9, 2.9, 2.9], // 01 Video 360
-        [ 6.0, 1.45, -2.9, 2.9, 2.9, 2.9], // 02 Realidad Virtual
-        [ 0.0, 1.45, -6.2, 2.9, 2.9, 2.9], // 03 Interactividad
-        [-5.6, 1.45,  4.1, 2.9, 2.9, 2.9], // 04 Gamificación
-        [ 5.6, 1.45,  4.1, 2.9, 2.9, 2.9]  // 05 Team Building
+        [-6.0, 1.45, -2.9, 2.9, 2.9, 2.9],
+        [ 6.0, 1.45, -2.9, 2.9, 2.9, 2.9],
+        [ 0.0, 1.45, -6.2, 2.9, 2.9, 2.9],
+        [-5.6, 1.45,  4.1, 2.9, 2.9, 2.9],
+        [ 5.6, 1.45,  4.1, 2.9, 2.9, 2.9]
     ];
 
     cubeDefinitions.forEach((definition, index) => {
+
         const cube = createStructure(...definition);
+
         cube.userData.hotspotId = index;
+
         hotspotParents[index] = cube;
-    });
-}
-
-function createStarField() {
-
-    const geometry = new THREE.BufferGeometry();
-    const positions = [];
-    const colors = [];
-    const sizes = [];
-
-    const starColors = [
-        new THREE.Color(0xfff8f2),
-        new THREE.Color(0xffd8cf),
-        new THREE.Color(0xffc0b0),
-        new THREE.Color(0xffe5c9)
-    ];
-
-    for (let i = 0; i < 3200; i++) {
-        const radius = 25 + Math.random() * 65;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-
-        positions.push(
-            radius * Math.sin(phi) * Math.cos(theta),
-            radius * Math.cos(phi),
-            radius * Math.sin(phi) * Math.sin(theta)
-        );
-
-        const c = starColors[Math.floor(Math.random() * starColors.length)];
-        colors.push(c.r, c.g, c.b);
-        sizes.push(0.02 + Math.random() * 0.06);
-    }
-
-    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    geometry.setAttribute("size", new THREE.Float32BufferAttribute(sizes, 1));
-
-    const material = new THREE.PointsMaterial({
-        size: 0.045,
-        vertexColors: true,
-        transparent: true,
-        opacity: 0.18,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending
-    });
-
-    const stars = new THREE.Points(geometry, material);
-    stars.name = "starField";
-    scene.add(stars);
-}
-
-function createNebula() {
-
-    const textureCanvas = document.createElement("canvas");
-    textureCanvas.width = 512;
-    textureCanvas.height = 512;
-    const ctx = textureCanvas.getContext("2d");
-
-    const gradient = ctx.createRadialGradient(256, 256, 20, 256, 256, 250);
-    gradient.addColorStop(0, "rgba(90, 210, 255, 0.22)");
-    gradient.addColorStop(0.35, "rgba(76, 95, 255, 0.11)");
-    gradient.addColorStop(0.72, "rgba(175, 70, 255, 0.035)");
-    gradient.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 512, 512);
-
-    const texture = new THREE.CanvasTexture(textureCanvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-
-    const positions = [
-        [-22, 8, -35, 28, 18, -0.25],
-        [24, -2, -45, 35, 22, 0.5],
-        [-30, -10, 10, 30, 20, 0.1]
-    ];
-
-    positions.forEach((p, i) => {
-        const material = new THREE.SpriteMaterial({
-            map: texture,
-            transparent: true,
-            opacity: 0.8,
-            depthWrite: false,
-            blending: THREE.AdditiveBlending
-        });
-        const sprite = new THREE.Sprite(material);
-        sprite.position.set(p[0], p[1], p[2]);
-        sprite.scale.set(p[3], p[4], 1);
-        sprite.material.rotation = p[5];
-        sprite.name = `nebula_${i}`;
-        scene.add(sprite);
     });
 }
 
@@ -705,7 +751,7 @@ function createStructure(x, y, z, width, height, depth) {
 
     const material = new THREE.MeshStandardMaterial({
         color: 0xffb999,
-        roughness: 1.48,
+        roughness: 0.88,
         metalness: 0
     });
 
@@ -746,6 +792,105 @@ function createStructure(x, y, z, width, height, depth) {
     mesh.add(base);
 
     return mesh;
+}
+
+
+/* ============================================================
+   ISLA CENTRAL
+   ============================================================
+
+   La isla ocupa prácticamente el mismo diámetro que el piso
+   circular (radio 10 = diámetro 20). Se centra automáticamente
+   en X/Z y se apoya sobre el nivel del piso.
+   ============================================================ */
+
+function createIsla() {
+
+    islaLoader.load(
+        "./assets/models/isla.glb",
+
+        (gltf) => {
+
+            const model = gltf.scene;
+            model.name = "islaCentral";
+
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+
+                    if (child.material) {
+                        child.material.needsUpdate = true;
+                    }
+                }
+            });
+
+            // ----------------------------------------------------
+            // ESCALA AUTOMÁTICA
+            // El piso tiene radio 10, por lo que su diámetro es 20.
+            // Ajustamos la isla para que su dimensión horizontal
+            // máxima sea exactamente ese diámetro.
+            // ----------------------------------------------------
+
+            model.updateMatrixWorld(true);
+
+            const bounds = new THREE.Box3().setFromObject(model);
+            const size = bounds.getSize(new THREE.Vector3());
+            const horizontalSize = Math.max(size.x, size.z);
+
+            const floorDiameter = 20;
+            const scale = floorDiameter / horizontalSize;
+
+            model.scale.setScalar(scale);
+
+            // Actualizamos bounds después de escalar.
+            model.updateMatrixWorld(true);
+
+            const scaledBounds = new THREE.Box3().setFromObject(model);
+            const center = scaledBounds.getCenter(new THREE.Vector3());
+
+            // Centrar horizontalmente la isla sobre el piso.
+            model.position.x -= center.x;
+            model.position.z -= center.z;
+
+            // Apoyar la parte inferior de la isla sobre el piso.
+            model.position.y += -10.35 - scaledBounds.min.y;
+
+            // Si el modelo contiene animaciones, reproducir la primera.
+            if (gltf.animations && gltf.animations.length > 0) {
+                const mixer = new THREE.AnimationMixer(model);
+                const action = mixer.clipAction(gltf.animations[0]);
+                action.reset();
+                action.play();
+                mixers.push(mixer);
+            }
+
+            world.add(model);
+            islaModel = model;
+
+            console.log(
+                `✅ Isla central cargada. Escala aplicada: ${scale.toFixed(4)}`
+            );
+        },
+
+        (progress) => {
+            if (progress.total) {
+                const percent =
+                    (progress.loaded / progress.total) * 100;
+
+                console.log(
+                    `🏝️ Cargando isla: ${percent.toFixed(0)}%`
+                );
+            }
+        },
+
+        (error) => {
+            console.error(
+                "❌ No se pudo cargar isla.glb:",
+                error
+            );
+        }
+    );
 }
 
 /* ============================================================
@@ -960,6 +1105,8 @@ function loadHotspotModel(data, index, anchor) {
             const model = gltf.scene;
 
             model.name = `controller_${index}`;
+            model.userData.interactiveRotationY = 0;
+            model.userData.interactiveRotationX = 0;
 
             /* =================================================
                MATERIALES
@@ -1168,13 +1315,63 @@ function updateHotspots() {
    CAMERA / INTERACTION
    ============================================================ */
 
+function getModelUnderPointer(event) {
+    if (!isCameraFocused || state.currentHotspot === null) return null;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+
+    modelPointer.x =
+        ((event.clientX - rect.left) / rect.width) * 2 - 1;
+
+    modelPointer.y =
+        -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    modelRaycaster.setFromCamera(modelPointer, camera);
+
+    const parent = hotspotParents[state.currentHotspot];
+    if (!parent) return null;
+
+    const anchor = parent.getObjectByName(
+        `interactiveController_${state.currentHotspot}`
+    );
+
+    if (!anchor) return null;
+
+    const model = anchor.getObjectByName(
+        `controller_${state.currentHotspot}`
+    );
+
+    if (!model) return null;
+
+    const hits = modelRaycaster.intersectObject(model, true);
+
+    return hits.length ? model : null;
+}
+
 function onPointerDown(event) {
 
     if (event.button !== undefined && event.button !== 0) return;
 
-    // Mientras la cámara está enfocada en un hotspot, el recorrido
-    // está bloqueado para mantener la lectura visual del popup.
-    if (isCameraFocused) return;
+    // Cuando estamos enfocados, el mouse sobre el modelo rota el modelo
+    // en lugar de mover la cámara.
+    if (isCameraFocused) {
+
+        const model = getModelUnderPointer(event);
+
+        if (model) {
+            rotatingModel = model;
+            rotatingModelStartX = event.clientX;
+            rotatingModelStartY = event.clientY;
+            rotatingModelBaseY =
+                model.userData.interactiveRotationY ?? 0;
+
+            renderer.domElement.setPointerCapture?.(event.pointerId);
+            renderer.domElement.style.cursor = "ew-resize";
+            hideInstructions();
+        }
+
+        return;
+    }
 
     isDragging = true;
     previousMouse.x = event.clientX;
@@ -1191,17 +1388,39 @@ function onPointerMove(event) {
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
+    // Rotación directa del modelo 3D
+    if (rotatingModel) {
+
+        const dx = event.clientX - rotatingModelStartX;
+        const dy = event.clientY - rotatingModelStartY;
+
+        rotatingModel.userData.interactiveRotationY =
+            rotatingModelBaseY + dx * 0.012;
+
+        rotatingModel.userData.interactiveRotationX =
+            THREE.MathUtils.clamp(
+                -dy * 0.006,
+                -0.45,
+                0.45
+            );
+
+        return;
+    }
+
     if (!isDragging) return;
 
     const dx = event.clientX - previousMouse.x;
     const dy = event.clientY - previousMouse.y;
 
-    // Solo órbita horizontal + movimiento vertical.
-    // No modificamos la profundidad durante el arrastre.
     targetRotationY -= dx * 0.0035;
     targetRotationX -= dy * 0.002;
 
-    targetRotationX = THREE.MathUtils.clamp(targetRotationX, -0.24, 0.24);
+    targetRotationX =
+        THREE.MathUtils.clamp(
+            targetRotationX,
+            -0.24,
+            0.24
+        );
 
     previousMouse.x = event.clientX;
     previousMouse.y = event.clientY;
@@ -1209,10 +1428,15 @@ function onPointerMove(event) {
 
 function onPointerUp(event) {
 
+    rotatingModel = null;
     isDragging = false;
 
     if (event?.pointerId !== undefined) {
-        try { renderer.domElement.releasePointerCapture?.(event.pointerId); } catch (e) {}
+        try {
+            renderer.domElement.releasePointerCapture?.(
+                event.pointerId
+            );
+        } catch (e) {}
     }
 
     renderer.domElement.style.cursor = "grab";
@@ -1367,6 +1591,7 @@ function focusCameraOnHotspot(id) {
     setHotspotsVisible(false);
 
     const hotspotWorldPosition = new THREE.Vector3();
+
 
     hotspot.getWorldPosition(hotspotWorldPosition);
 
@@ -1555,6 +1780,8 @@ onComplete: () => {
 
 function animate() {
 
+    
+
     requestAnimationFrame(animate);
 
     const delta = clock.getDelta();
@@ -1568,6 +1795,30 @@ mixers.forEach((mixer) => {
 });
 
     if (world) {
+        floatingBackgroundObjects.forEach((object) => {
+
+    const speed = object.userData.floatSpeed;
+    const offset = object.userData.floatOffset;
+
+    // Movimiento vertical muy suave
+    object.position.y =
+        object.userData.baseY +
+        Math.sin(elapsed * speed + offset) * 0.7;
+
+    // Pequeño desplazamiento lateral
+    object.position.x =
+        object.userData.baseX +
+        Math.sin(elapsed * speed * 0.35 + offset) * 0.25;
+
+    object.position.z =
+        object.userData.baseZ +
+        Math.cos(elapsed * speed * 0.3 + offset) * 0.25;
+
+    // Rotación lenta
+    object.rotation.x += object.userData.rotationX;
+    object.rotation.y += object.userData.rotationY;
+    object.rotation.z += object.userData.rotationZ;
+});
 
         // Detenemos la rotación durante el focus para que la cámara
         // permanezca perfectamente dirigida al cubo seleccionado.
@@ -1636,8 +1887,13 @@ mixers.forEach((mixer) => {
 
     model.rotation.y =
         baseRotation.y +
-        elapsed * 0.35;
+        elapsed * 0.35 +
+        (model.userData.interactiveRotationY ?? 0);
 
+
+    model.rotation.x =
+        baseRotation.x +
+        (model.userData.interactiveRotationX ?? 0);
 
     model.rotation.z =
         baseRotation.z +
@@ -1675,6 +1931,38 @@ mixers.forEach((mixer) => {
 
         });
 
+    }
+
+    // ============================================================
+    // ANIMACIÓN DEL POLVO
+    // Movimiento lento, irregular y casi imperceptible.
+    // ============================================================
+    if (dustParticles) {
+
+        const positions =
+            dustParticles.geometry.attributes.position.array;
+
+        for (let i = 0; i < positions.length; i += 3) {
+
+            const particleIndex = i / 3;
+
+            positions[i] +=
+                Math.sin(elapsed * 0.18 + particleIndex) * 0.00035;
+
+            positions[i + 1] +=
+                0.00045 +
+                Math.sin(elapsed * 0.55 + particleIndex * 0.37) * 0.00022;
+
+            positions[i + 2] +=
+                Math.cos(elapsed * 0.16 + particleIndex * 0.71) * 0.00025;
+
+            // Reaparece abajo cuando abandona el volumen.
+            if (positions[i + 1] > 9.4) {
+                positions[i + 1] = 0.4;
+            }
+        }
+
+        dustParticles.geometry.attributes.position.needsUpdate = true;
     }
 
     updateCamera();
@@ -1778,7 +2066,7 @@ function closeOverlay(element) {
 
 function closeAllOverlays() {
 
-    [mapOverlay, chaptersOverlay, menuOverlay].forEach(overlay => {
+    [mapOverlay, chaptersOverlay, menuOverlay, contactOverlay].forEach(overlay => {
 
         if (overlay.style.display !== "none") {
 
@@ -1821,22 +2109,7 @@ function goHome() {
     closeInfoPanel();
     closeAllOverlays();
 
-    if (camera) {
-        if (focusTween) focusTween.kill();
-
-        isCameraFocused = false;
-        savedCameraState = null;
-
-        camera.userData.orbitDistance = 9.0;
-        targetRotationY = 0;
-        targetRotationX = 0;
-        currentRotationY = 0;
-        currentRotationX = 0;
-        cameraTarget.set(0, 2.25, 0);
-        camera.position.set(0, 3.6, 9.0);
-        camera.lookAt(cameraTarget);
-    }
-
+    
     gsap.set(intro, {
         display: "flex",
         autoAlpha: 1
@@ -1857,29 +2130,29 @@ function goHome() {
 
 const gallerySets = [
     [
-        ["./assets/gallery/360-1.jpg", "VIDEO 360° — INMERSIÓN"],
-        ["./assets/gallery/360-2.jpg", "VIDEO 360° — ESCENA"],
+        ["./assets/gallery/360-1.png", "VIDEO 360° — INMERSIÓN"],
+        ["./assets/gallery/360-2.png", "VIDEO 360° — ESCENA"],
         ["./assets/gallery/360-3.png", "VIDEO 360° — EXPERIENCIA"]
     ],
     [
-        ["./assets/gallery/vr-01.svg", "REALIDAD VIRTUAL — SIMULACIÓN"],
-        ["./assets/gallery/vr-02.svg", "REALIDAD VIRTUAL — PRÁCTICA"],
-        ["./assets/gallery/vr-03.svg", "REALIDAD VIRTUAL — ENTORNO"]
+        ["./assets/gallery/vr-1.png", "REALIDAD VIRTUAL — SIMULACIÓN"],
+        ["./assets/gallery/vr-2.png", "REALIDAD VIRTUAL — PRÁCTICA"],
+        ["./assets/gallery/vr-3.png", "REALIDAD VIRTUAL — ENTORNO"]
     ],
     [
-        ["./assets/gallery/interactividad-01.svg", "INTERACTIVIDAD — EXPLORA"],
-        ["./assets/gallery/interactividad-02.svg", "INTERACTIVIDAD — DESCUBRE"],
-        ["./assets/gallery/interactividad-03.svg", "INTERACTIVIDAD — DECIDE"]
+        ["./assets/gallery/interactivo-1.png", "INTERACTIVIDAD — EXPLORA"],
+        ["./assets/gallery/interactivo-2.png", "INTERACTIVIDAD — DESCUBRE"],
+        ["./assets/gallery/interactivo-3.png", "INTERACTIVIDAD — DECIDE"]
     ],
     [
-        ["./assets/gallery/gamificacion-01.svg", "GAMIFICACIÓN — DESAFÍO"],
-        ["./assets/gallery/gamificacion-02.svg", "GAMIFICACIÓN — PROGRESIÓN"],
-        ["./assets/gallery/gamificacion-03.svg", "GAMIFICACIÓN — RECOMPENSA"]
+        ["./assets/gallery/gamificacion-1.png", "GAMIFICACIÓN — DESAFÍO"],
+        ["./assets/gallery/gamificacion-2.png", "GAMIFICACIÓN — PROGRESIÓN"],
+        ["./assets/gallery/gamificacion-3.png", "GAMIFICACIÓN — RECOMPENSA"]
     ],
     [
-        ["./assets/gallery/team-01.svg", "TEAM BUILDING — CONEXIÓN"],
-        ["./assets/gallery/team-02.svg", "TEAM BUILDING — COLABORACIÓN"],
-        ["./assets/gallery/team-03.svg", "TEAM BUILDING — EQUIPO"]
+        ["./assets/gallery/team-1.png", "TEAM BUILDING — CONEXIÓN"],
+        ["./assets/gallery/team-2.png", "TEAM BUILDING — COLABORACIÓN"],
+        ["./assets/gallery/team-3.png", "TEAM BUILDING — EQUIPO"]
     ]
 ];
 
@@ -1909,6 +2182,7 @@ function openGallery() {
 }
 
 function closeGalleryPanel() {
+    
     if (!galleryPanel) return;
 
     galleryPanel.setAttribute("aria-hidden", "true");
@@ -1951,6 +2225,40 @@ function galleryStep(direction) {
     if (!galleryImages.length) return;
     galleryIndex = (galleryIndex + direction + galleryImages.length) % galleryImages.length;
     renderGallery();
+}
+
+function openContactPanel() {
+    if (!contactOverlay) return;
+
+    closeAllOverlays();
+
+    contactOverlay.style.display = "block";
+    contactOverlay.setAttribute("aria-hidden", "false");
+
+    gsap.fromTo(
+        contactOverlay,
+        { autoAlpha: 0 },
+        {
+            autoAlpha: 1,
+            duration: 0.45,
+            ease: "power2.out"
+        }
+    );
+}
+
+function closeContactPanel() {
+    if (!contactOverlay) return;
+
+    contactOverlay.setAttribute("aria-hidden", "true");
+
+    gsap.to(contactOverlay, {
+        autoAlpha: 0,
+        duration: 0.3,
+        ease: "power2.in",
+        onComplete: () => {
+            contactOverlay.style.display = "none";
+        }
+    });
 }
 
 /* ============================================================
@@ -2013,9 +2321,12 @@ function setupMenu() {
 
     document.getElementById("menuContact").addEventListener(
         "click",
-        () => {
-            alert("Aquí conectaremos posteriormente el formulario de contacto.");
-        }
+        openContactPanel
+    );
+
+    document.getElementById("infoContactAction")?.addEventListener(
+        "click",
+        openContactPanel
     );
 
     document.getElementById("infoAction").addEventListener(
@@ -2023,6 +2334,12 @@ function setupMenu() {
         () => {
             openGallery();
         }
+    );
+
+    closeContact?.addEventListener("click", closeContactPanel);
+    document.getElementById("footerContact")?.addEventListener(
+        "click",
+        openContactPanel
     );
 
     closeGallery.addEventListener("click", closeGalleryPanel);
@@ -2086,7 +2403,7 @@ function onResize() {
 
     if (composer) {
         composer.setSize(window.innerWidth, window.innerHeight);
-        composer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        composer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
     }
 
     if (bloomPass) {

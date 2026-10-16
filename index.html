@@ -94,13 +94,13 @@
                     <span>EXPLORA LOS PUNTOS INTERACTIVOS</span>
                 </div>
 
-                <div class="hud-progress">
+                <!--div class="hud-progress">
                     <span>01</span>
                     <div class="progress-line">
                         <div id="progressBar"></div>
                     </div>
                     <span>05</span>
-                </div>
+                </div-->
 
             </div>
 
@@ -142,6 +142,11 @@
                     <button class="secondary-button" id="infoAction">
                         Galería
                         <span>→</span>
+                    </button>
+
+                    <button class="contact-cta" id="infoContactAction">
+                        Comunícate con nosotros
+                        <span>↗</span>
                     </button>
                 </div>
 
@@ -306,6 +311,47 @@
             <!-- =========================
                  MENU OVERLAY
             ========================== -->
+            <!-- =========================
+                 CONTACTO
+            ========================== -->
+            <section id="contactOverlay" class="overlay-panel contact-overlay" aria-hidden="true">
+                <button id="closeContact" class="overlay-close" aria-label="Cerrar contacto">×</button>
+
+                <div class="contact-inner">
+                    <div class="eyebrow">COMUNÍCATE CON NOSOTROS</div>
+
+                    <h2>Hablemos<span>.</span></h2>
+
+                    <p>
+                        ¿Quieres llevar una experiencia inmersiva a tu equipo?
+                        Conversemos sobre tu próximo proyecto.
+                    </p>
+
+                    <div class="contact-card">
+                        <div class="contact-name">Elías Videla</div>
+                        <a class="contact-link" href="https://wa.me/+56992726407" target="_blank" rel="noopener">
+                            <span>WhatsApp</span>
+                            <strong>+56 9 9272 6407</strong>
+                        </a>
+                       <a class="contact-link" href="mailto:eliasvidela@gmail.com">
+                            <span>Correo</span>
+                            <strong>eliasvidela@gmail.com</strong>
+                        </a>
+                    </div>
+                    <div class="contact-card">
+                        <div class="contact-name">Jorge Romero</div>
+                        <a class="contact-link" href="https://wa.me/+56957184622" target="_blank" rel="noopener">
+                            <span>WhatsApp</span>
+                            <strong>+56 9 5718 4622</strong>
+                        </a>
+                       <a class="contact-link" href="mailto:j.romeroa88@gmail.com">
+                            <span>Correo</span>
+                            <strong>j.romeroa88@gmail.com</strong>
+                        </a>
+                    </div>
+                    </div>
+            </section>
+
             <section id="menuOverlay" class="menu-overlay">
 
                 <button class="overlay-close" data-close-overlay>×</button>
@@ -326,6 +372,10 @@
                         <span>INMERSION</span>
                         <span>GAMIFICACIÓN</span>
                         <span>TEAM BUILDING</span>
+
+                        <button id="footerContact" class="footer-contact">
+                            COMUNÍCATE CON NOSOTROS <span>↗</span>
+                        </button>
                     </div>
 
                 </div>
