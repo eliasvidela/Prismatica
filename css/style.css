@@ -1445,3 +1445,267 @@ body { background: #fd7171; }
         gap: 6px;
     }
 }
+
+
+/* ============================================================
+   MOBILE EXPERIENCE — MODEL ABOVE / CONTENT BELOW
+   ============================================================ */
+.mobile-experience-nav { display: none; }
+
+@media (max-width: 800px) {
+    #experience {
+        min-height: 100dvh;
+        height: 100dvh;
+        overflow: hidden;
+        touch-action: pan-y;
+    }
+
+    #canvas-container,
+    #canvas-container canvas {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* Give the model a clear visual stage above the information card. */
+    #experience .vignette {
+        pointer-events: none;
+        background:
+            linear-gradient(
+                to bottom,
+                rgba(255, 230, 218, .02) 0%,
+                rgba(255, 230, 218, .02) 34%,
+                rgba(103, 43, 39, .08) 49%,
+                rgba(93, 39, 36, .26) 100%
+            );
+    }
+
+    .topbar {
+        top: max(12px, env(safe-area-inset-top));
+        left: 5%;
+        right: 5%;
+        padding: 0;
+        z-index: 30;
+    }
+
+    .hud,
+    .instructions,
+    .bottom-info,
+    .drag-hint {
+        display: none !important;
+    }
+
+    .info-panel,
+    .info-panel.gallery-open {
+        position: absolute;
+        z-index: 25;
+        left: 4%;
+        right: 4%;
+        top: auto;
+        bottom: max(12px, env(safe-area-inset-bottom));
+        width: 92%;
+        max-width: none;
+        min-height: 0;
+        max-height: 46dvh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: clamp(18px, 4.5vw, 26px);
+        box-sizing: border-box;
+        border-radius: 18px;
+        transform: translateY(35px);
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .info-panel .info-content {
+        width: 100%;
+    }
+
+    .info-number {
+        margin-bottom: 5px;
+        font-size: 10px;
+        letter-spacing: .16em;
+    }
+
+    .info-category {
+        margin-bottom: 8px;
+        font-size: 9px;
+        letter-spacing: .15em;
+    }
+
+    .info-panel h2 {
+        font-size: clamp(27px, 7.2vw, 40px);
+        line-height: .98;
+        margin: 0 28px 10px 0;
+        letter-spacing: -.055em;
+    }
+
+    .info-panel p {
+        font-size: clamp(12px, 3.35vw, 14px);
+        line-height: 1.5;
+        margin-bottom: 0;
+    }
+
+    .close-button {
+        top: 9px;
+        right: 12px;
+        font-size: 25px;
+        z-index: 3;
+    }
+
+    .secondary-button {
+        width: 100%;
+        margin-top: 14px;
+        padding: 12px 14px;
+        font-size: 10px;
+    }
+
+    .contact-cta {
+        margin-top: 8px;
+        padding: 12px 14px;
+        font-size: 9px;
+    }
+
+    .mobile-experience-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 245, 238, .22);
+    }
+
+    .mobile-experience-nav > button {
+        display: grid;
+        place-items: center;
+        flex: 0 0 36px;
+        width: 36px;
+        height: 36px;
+        border: 1px solid rgba(255, 245, 238, .58);
+        border-radius: 50%;
+        background: rgba(255, 245, 238, .08);
+        color: #fff8f2;
+        font-size: 19px;
+        line-height: 1;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-experience-dots {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex: 1;
+    }
+
+    .mobile-experience-dot {
+        width: 7px;
+        height: 7px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255, 245, 238, .42);
+        transition: width .25s ease, background .25s ease, transform .25s ease;
+    }
+
+    .mobile-experience-dot.active {
+        width: 22px;
+        border-radius: 999px;
+        background: #fff5ed;
+    }
+
+    .gallery-panel {
+        z-index: 40;
+        left: 4%;
+        right: 4%;
+        top: 4%;
+        bottom: auto;
+        width: 92%;
+        height: 48dvh;
+        max-height: 48dvh;
+        padding: 14px;
+        box-sizing: border-box;
+        transform: none;
+    }
+
+    .gallery-layout,
+    .gallery-main-wrap,
+    .gallery-main {
+        min-height: 0;
+    }
+
+    #contactOverlay,
+    .overlay-panel,
+    .menu-overlay {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+}
+
+/* Compact-height devices: preserve room for both the model and the card. */
+@media (max-width: 800px) and (max-height: 720px) {
+    .info-panel,
+    .info-panel.gallery-open {
+        max-height: 49dvh;
+        padding: 14px 17px;
+    }
+
+    .info-panel h2 {
+        font-size: clamp(24px, 6vw, 32px);
+        margin-bottom: 7px;
+    }
+
+    .info-panel p {
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    .secondary-button {
+        margin-top: 10px;
+        padding: 10px 12px;
+    }
+
+    .contact-cta {
+        margin-top: 6px;
+        padding: 9px 12px;
+    }
+
+    .mobile-experience-nav {
+        margin-top: 10px;
+        padding-top: 8px;
+    }
+}
+
+/* Landscape phones: use a side-by-side composition instead of stacking. */
+@media (max-width: 900px) and (orientation: landscape) {
+    .info-panel,
+    .info-panel.gallery-open {
+        left: auto;
+        right: 3%;
+        bottom: 4%;
+        width: 43%;
+        max-height: 82dvh;
+        padding: 15px 18px;
+    }
+
+    .info-panel h2 {
+        font-size: clamp(22px, 4vw, 34px);
+    }
+
+    .info-panel p {
+        font-size: 12px;
+    }
+
+    .gallery-panel {
+        left: 3%;
+        right: auto;
+        top: 8%;
+        bottom: auto;
+        width: 49%;
+        height: 84dvh;
+        max-height: 84dvh;
+    }
+}

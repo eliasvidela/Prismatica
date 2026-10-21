@@ -16,3 +16,10 @@ Controles:
 - Click en un hotspot: focus + zoom + popup.
 - Cerrar popup: regreso al encuadre anterior.
 - Inicio: restablece la experiencia.
+
+
+ACTUALIZACIÓN RESPONSIVE MÓVIL
+- En móvil vertical, el modelo se encuadra en la zona superior y la ficha informativa queda abajo.
+- La navegación móvil permite deslizar a izquierda/derecha o usar flechas e indicadores.
+- Al iniciar en móvil se abre automáticamente la primera experiencia.
+- Escritorio conserva el comportamiento anterior; móvil horizontal utiliza composición lateral.

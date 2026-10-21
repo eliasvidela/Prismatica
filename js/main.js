@@ -1595,13 +1595,17 @@ function focusCameraOnHotspot(id) {
 
     hotspot.getWorldPosition(hotspotWorldPosition);
 
-    savedCameraState = {
-        position: camera.position.clone(),
-        target: cameraTarget.clone(),
-        rotationY: targetRotationY,
-        rotationX: targetRotationX,
-        orbitDistance: camera.userData.orbitDistance ?? 9.0
-    };
+    // Conserva el encuadre original al cambiar de experiencia desde móvil.
+    // Así cada swipe no guarda como "original" la cámara ya acercada.
+    if (!savedCameraState) {
+        savedCameraState = {
+            position: camera.position.clone(),
+            target: cameraTarget.clone(),
+            rotationY: targetRotationY,
+            rotationX: targetRotationX,
+            orbitDistance: camera.userData.orbitDistance ?? 9.0
+        };
+    }
 
     isCameraFocused = true;
     isDragging = false;
@@ -1635,7 +1639,7 @@ function focusCameraOnHotspot(id) {
     // completo quede mejor encuadrado durante el zoom.
     const lookTarget =
         hotspotWorldPosition.clone();
-    lookTarget.y += 0.55;
+    lookTarget.y += window.matchMedia("(max-width: 800px)").matches ? 1.45 : 0.55;
 
     const proxy = {
         x: camera.position.x,
@@ -1999,6 +2003,7 @@ function openInfo(id) {
     });
 
     updateProgress(id);
+    updateMobileExperienceDots();
 }
 
 function closeInfoPanel() {
@@ -2100,7 +2105,14 @@ function startExperience() {
         .to(experience, {
             autoAlpha: 1,
             duration: .8,
-            ease: "power2.out"
+            ease: "power2.out",
+            onComplete: () => {
+                if (window.matchMedia("(max-width: 800px)").matches) {
+                    hideInstructions();
+                    openInfo(0);
+                    focusCameraOnHotspot(0);
+                }
+            }
         });
 }
 
@@ -2265,7 +2277,97 @@ function closeContactPanel() {
    MENU
    ============================================================ */
 
+/* ============================================================
+   NAVEGACIÓN MÓVIL ENTRE EXPERIENCIAS
+   Swipe horizontal + botones accesibles.
+   ============================================================ */
+
+const mobilePrevExperience = document.getElementById("mobilePrevExperience");
+const mobileNextExperience = document.getElementById("mobileNextExperience");
+const mobileExperienceDots = document.getElementById("mobileExperienceDots");
+
+function buildMobileExperienceDots() {
+    if (!mobileExperienceDots) return;
+    mobileExperienceDots.innerHTML = "";
+    hotspotData.forEach((item, index) => {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = "mobile-experience-dot";
+        dot.setAttribute("aria-label", `Ir a ${item.title}`);
+        dot.addEventListener("click", () => navigateMobileExperience(index));
+        mobileExperienceDots.appendChild(dot);
+    });
+    updateMobileExperienceDots();
+}
+
+function updateMobileExperienceDots() {
+    if (!mobileExperienceDots) return;
+    [...mobileExperienceDots.children].forEach((dot, index) => {
+        dot.classList.toggle("active", index === state.currentHotspot);
+        dot.setAttribute("aria-current", index === state.currentHotspot ? "step" : "false");
+    });
+}
+
+function navigateMobileExperience(nextIndex) {
+    if (!window.matchMedia("(max-width: 800px)").matches) return;
+    if (galleryPanel?.classList.contains("is-open")) return;
+
+    const index = (nextIndex + hotspotData.length) % hotspotData.length;
+    closeAllOverlays();
+
+    if (state.currentHotspot === null || !savedCameraState) {
+        openInfo(index);
+        focusCameraOnHotspot(index);
+        hideInstructions();
+        return;
+    }
+
+    if (focusTween) focusTween.kill();
+    openInfo(index);
+    focusCameraOnHotspot(index);
+    updateMobileExperienceDots();
+}
+
+function setupMobileExperienceNavigation() {
+    buildMobileExperienceDots();
+
+    mobilePrevExperience?.addEventListener("click", () => {
+        navigateMobileExperience((state.currentHotspot ?? 0) - 1);
+    });
+    mobileNextExperience?.addEventListener("click", () => {
+        navigateMobileExperience((state.currentHotspot ?? -1) + 1);
+    });
+
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    experience.addEventListener("touchstart", (event) => {
+        if (!window.matchMedia("(max-width: 800px)").matches) return;
+        if (event.touches.length !== 1) return;
+        const target = event.target;
+        if (target.closest("button, a, input, textarea, .gallery-panel, .overlay-panel, .menu-overlay")) return;
+        startX = event.touches[0].clientX;
+        startY = event.touches[0].clientY;
+        tracking = true;
+    }, { passive: true });
+
+    experience.addEventListener("touchend", (event) => {
+        if (!tracking || !window.matchMedia("(max-width: 800px)").matches) return;
+        tracking = false;
+        if (!event.changedTouches.length) return;
+        const dx = event.changedTouches[0].clientX - startX;
+        const dy = event.changedTouches[0].clientY - startY;
+        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+
+        if (galleryPanel?.classList.contains("is-open")) return;
+        navigateMobileExperience((state.currentHotspot ?? 0) + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+}
+
 function setupMenu() {
+
+    setupMobileExperienceNavigation();
 
     startButton.addEventListener("click", startExperience);
 
